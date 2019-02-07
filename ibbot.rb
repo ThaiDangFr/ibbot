@@ -18,7 +18,7 @@ password = ENV['P123PWD']
 agent = Mechanize.new
 agent.verify_mode = OpenSSL::SSL::VERIFY_NONE
 agent.user_agent_alias = 'Linux Firefox'
-agent.log = Logger.new(STDERR)
+#agent.log = Logger.new(STDOUT)
 page = agent.get(loginurl)
 form = page.forms.first
 
