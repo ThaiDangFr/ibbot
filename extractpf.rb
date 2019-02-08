@@ -45,6 +45,20 @@ pliq = doc.css('div#trade-cont2 tbody tr').select { |x| x.css('td')[0].text == p
 liquidation = pliq.css('td')[8].text.gsub(/[^\d^\.]/,'').to_f
 portfolio["liquidation"] = liquidation
 
+### parse Current Stock Positions field ###
+psto = doc.css('div#pos-tbl-cont table')[1].css('tbody tr').select { |x| x.css('td')[0].text == pfname }
+psto.each do |p|
+  ticker = p.css('td')[1].css('span')[0].text
+  shares = p.css('td')[3].text.to_i
+  avgcost = p.css('td')[7].text.gsub(/[^\d^\.]/,'').to_f
+  
+  hash = Hash.new
+  hash["ticker"] = ticker
+  hash["shares"] = shares
+  hash["avgcost"] = avgcost
+  stocks.push hash
+end
+
 
 ### create output ###
 FileUtils.mkdir_p "#{outputdir}" unless File.exists? "#{outputdir}"
