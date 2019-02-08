@@ -35,6 +35,7 @@ array = page.content.split("\n").map { |x| x.chomp.split("\t")[1] }.reject { |x|
 
 open("#{p123id}.json","w") { |f|
   f.puts(JSON.pretty_generate(array))
+  puts "File #{p123id}.json generated"
 }
 
 
