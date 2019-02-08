@@ -2,6 +2,7 @@
 
 require 'mechanize'
 require 'logger'
+require 'json'
 
 p123id=ARGV[0]
 
@@ -29,7 +30,11 @@ form["url"] = "/"
 agent.submit(form, form.buttons.first)
 page = agent.get(pfurl)
 
-pp page.content.split("\n")
+array = page.content.split("\n").map { |x| x.chomp.split("\t")[1] }.reject { |x| x == "Ticker" }
 
+
+open("#{p123id}.json","w") { |f|
+  f.puts(JSON.pretty_generate(array))
+}
 
 
