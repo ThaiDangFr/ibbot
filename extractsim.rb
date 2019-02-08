@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# ruby.bastardsbook.com/chapters/mechanize/
 
 require 'mechanize'
 require 'logger'
