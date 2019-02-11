@@ -4,6 +4,7 @@ require 'mechanize'
 require 'logger'
 require 'json'
 require 'fileutils'
+require 'iex-ruby-client'
 
 pfname=ARGV[0]
 
@@ -52,10 +53,13 @@ psto.each do |p|
   shares = p.css('td')[3].text.to_i
   avgcost = p.css('td')[7].text.gsub(/[^\d^\.]/,'').to_f
   
+  quote = IEX::Resources::Quote.get(ticker)
+
   hash = Hash.new
   hash["ticker"] = ticker
   hash["shares"] = shares
   hash["avgcost"] = avgcost
+  hash["price"] = quote.latest_price
   stocks.push hash
 end
 
