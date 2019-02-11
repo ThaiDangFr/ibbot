@@ -1,0 +1,8 @@
+default: &default
+  adapter: sqlite3
+  database: db/ibbot.db
+  pool: 5
+  timeout: 5000
+
+production:
+  <<: *default
