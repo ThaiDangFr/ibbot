@@ -5,6 +5,7 @@ require 'mechanize'
 require 'logger'
 require 'json'
 require 'fileutils'
+require 'iex-ruby-client'
 
 p123id=ARGV[0]
 
@@ -35,10 +36,21 @@ page = agent.get(pfurl)
 
 array = page.content.split("\n").map { |x| x.chomp.split("\t")[1] }.reject { |x| x == "Ticker" }
 
+target = Array.new
+array.each do |ticker|
+  quote = IEX::Resources::Quote.get(ticker)
+
+  hash = Hash.new
+  hash["ticker"] = ticker
+  hash["price"] = quote.latest_price
+  target.push hash
+end
+
+
 FileUtils.mkdir_p "#{outputdir}" unless File.exists? "#{outputdir}"
 
 open("#{outputdir}/#{p123id}.json","w") { |f|
-  f.puts(JSON.pretty_generate(array))
+  f.puts(JSON.pretty_generate(target))
   puts "File #{outputdir}/#{p123id}.json generated"
 }
 
