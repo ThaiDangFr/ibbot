@@ -7,11 +7,11 @@ require 'fileutils'
 CASHPCT = 0.02 # 2% stay in cash
 outputdir = "output"
 
-pf = ARGV[0]
-target = ARGV[1]
+pf = "output/#{ARGV[0]}.json"
+target = "output/#{ARGV[1]}.json"
 
 if pf.nil? or target.nil?
-  raise "Syntax : #{__FILE__} <portfolio path> <target path>"
+  raise "Syntax : #{__FILE__} <portfolio name> <sim id>"
 end
 
 orders = Array.new
@@ -65,7 +65,7 @@ end
 
 
 FileUtils.mkdir_p "#{outputdir}" unless File.exists? "#{outputdir}"
-filename = "#{File.basename(pf,'.*')}-#{File.basename(target,'.*')}-orders.txt"
+filename = "#{ARGV[0]}-#{ARGV[1]}-orders.txt"
 open("#{outputdir}/#{filename}","w") { |f|
   f.puts(orders)
   puts "File #{outputdir}/#{filename} generated"
