@@ -6,5 +6,5 @@
 
 ./extractsim.rb 1557921
 
-./genorder.rb PRO 1557921
-./genorder.rb PERSO 1557921
+./genorders.rb PRO 1557921
+./genorders.rb PERSO 1557921
