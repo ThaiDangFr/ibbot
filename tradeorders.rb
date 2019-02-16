@@ -67,26 +67,31 @@ form["batch_source_name"] = "ibbot #{Time.now}"
 form["batch_order_type_uid"] = "2"
 form["batch_txt"] = ordertxt
 form["batch_account_uid"] = batch_account_uid
+form.method = "POST"
 
-page2 = agent.submit(form, form.buttons.first)
+page2 = agent.submit(form)
 
-pp page2
+form2 = page2.forms_with("add-order-form").first
+form2["valid_order_cnt"] = "0"
+form2["verifyOrders"] = "1"
+form2.method = "POST"
 
-# review and submit
-#page3 = page2.links_with(:text => "Review and Submit").first.click
-#pp page3
+page3 = agent.submit(form2)
 
 
-#form = page.forms_with("add-order-form").first
-#agent.submit(form, form.buttons.first)
+form3 = page3.forms_with("add-order-form").first
+form3.method = "POST"
 
-#page = agent.get(tradeurl)
-#pp page
+pp form3
 
-### parse Liquidation field ###
-#doc = page.parser
-#pliq = doc.css('div#trade-cont2 tbody tr').select { |x| x.css('td')[0].text == pfname }.first
-#liquidation = pliq.css('td')[8].text.gsub(/[^\d^\.]/,'').to_f
+#page4 = agent.submit(form3)
+
+
+
+
+
+
+
 
 
 
