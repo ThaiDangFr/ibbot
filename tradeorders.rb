@@ -63,28 +63,43 @@ batch_account_uid = doc.css("select#batch_account_uid").css("option").select { |
 
 
 form = page.forms_with("add-order-form").first
+
 form["batch_source_name"] = "ibbot #{Time.now}"
 form["batch_order_type_uid"] = "2"
 form["batch_txt"] = ordertxt
 form["batch_account_uid"] = batch_account_uid
-form.method = "POST"
+#form["order_cnt"] = "0"
+#form["valid_order_cnt"] = "0"
+#form["error_order_cnt"] = "0"
+form["addOrders"] = "1"
+#form.method = "POST"
+#form.action = "https://www.portfolio123.com/app/trade/orderBatchAddUpdate"
 
 page2 = agent.submit(form)
 
+#pp page2
+
+#order_uid important
+
 form2 = page2.forms_with("add-order-form").first
-form2["valid_order_cnt"] = "0"
+#form2["valid_order_cnt"] = "2"
+#form2["order_uid[]"] = "0,order_uid[]=1"
 form2["verifyOrders"] = "1"
-form2.method = "POST"
+#form2.method = "POST"
+#form2.action = "https://www.portfolio123.com/app/trade/orderBatchSubmit"
+#form2.action = "https://www.portfolio123.com/app/trade/orderBatchAddUpdate"
 
 page3 = agent.submit(form2)
 
-
-form3 = page3.forms_with("add-order-form").first
-form3.method = "POST"
-
-pp form3
+form3 = page2.forms_with("add-order-form").first
+form3["order_uid[]"] = "0,order_uid[]=1"
+form3.delete_field!("verifyOrders")
+form2.method = "POST"
+#form2.action = "https://www.portfolio123.com/app/trade/orderBatchSubmit"
 
 #page4 = agent.submit(form3)
+
+#pp page4
 
 
 
