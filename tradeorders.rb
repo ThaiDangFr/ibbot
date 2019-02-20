@@ -31,11 +31,18 @@ browser = Watir::Browser.new
 browser.goto(loginurl)
 browser.input(name: 'LoginUsername').send_keys(username)
 browser.input(name: 'LoginPassword').send_keys(password)
-browser.input(values: 'Submit').click
+browser.input(name: 'Login').click
 
-
-
-
+browser.goto(tradeurl)
+browser.text_field(name: 'batch_source_name').set("ibbot #{Time.now}")
+browser.select_list(name: "batch_account_uid").options.find do |option|
+  option.text.include? pfname
+end.select
+browser.select_list(name: "batch_order_type_uid").select("Limit")
+browser.textarea(name: "batch_txt").set(ordertxt)
+browser.link(text: "Add to Order").click
+browser.link(text: "Review and Submit").click
+browser.link(text: "Send Order").click
 
 
 
