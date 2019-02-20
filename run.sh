@@ -4,13 +4,19 @@
 export scriptPath=$(dirname $0)
 cd ${scriptPath}
 
-./extractpf.rb PRO
-./extractpf.rb PERSO
+trade() {
+    pfname = $1
+    simid = $2
 
-./extractsim.rb 1557921
+    ./extractpf.rb ${pfname}
+    ./extractsim.rb ${simid}
+    ./genorders.rb ${pfname} ${simid}
+    ./tradeorders.rb ${pfname} output/${pfname}-${simid}-orders.txt
 
-./genorders.rb PRO 1557921
-./genorders.rb PERSO 1557921
+    mkdir -p output/done
+    mv output/*.* output/done/
+}
 
-./tradeorders.rb PRO output/PRO-1557921-orders.txt
-./tradeorders.rb PERSO output/PERSO-1557921-orders.txt
+
+trade PRO 1557921
+trade PERSO 1557921
