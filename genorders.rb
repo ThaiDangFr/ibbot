@@ -5,6 +5,9 @@ require 'json'
 require 'fileutils'
 
 CASHPCT = 0.02 # 2% stay in cash
+SLIPPAGE = 0.0025 # 0.25%
+SELLPRICE = 1-SLIPPAGE
+BUYPRICE = 1 + SLIPPAGE
 outputdir = "output"
 
 pf = "output/#{ARGV[0]}.json"
@@ -33,7 +36,7 @@ jpf["stocks"].each do |h|
 
   # SELL if not in target
   if not target_ticker_price_hash.key? ticker
-    orders.push "#{ticker} SELL #{shares} LIMIT:#{(price*0.99).round(2)}"
+    orders.push "#{ticker} SELL #{shares} LIMIT:#{(price*SELLPRICE).round(2)}"
     next
   end
 
@@ -42,11 +45,11 @@ jpf["stocks"].each do |h|
 
   if delta < 0 # SELL if there are too many
     shares_to_sell = (-delta / price).round
-    orders.push "#{ticker} SELL #{shares_to_sell} LIMIT:#{(price*0.99).round(2)}" unless shares_to_sell == 0
+    orders.push "#{ticker} SELL #{shares_to_sell} LIMIT:#{(price*SELLPRICE).round(2)}" unless shares_to_sell == 0
 
   elsif delta > 0 # BUY if there are not enough
     shares_to_buy = (delta / price).round
-    orders.push "#{ticker} BUY #{shares_to_buy} LIMIT:#{(price*1.01).round(2)}" unless shares_to_buy == 0
+    orders.push "#{ticker} BUY #{shares_to_buy} LIMIT:#{(price*BUYPRICE).round(2)}" unless shares_to_buy == 0
   end
 
 end
@@ -59,7 +62,7 @@ target_ticker_price_hash.each do |t,p|
     ticker = t
     price = p
     shares_to_buy = (maxmktvalue / price).round
-    orders.push "#{ticker} BUY #{shares_to_buy} LIMIT:#{(price*1.01).round(2)}" unless shares_to_buy == 0
+    orders.push "#{ticker} BUY #{shares_to_buy} LIMIT:#{(price*BUYPRICE).round(2)}" unless shares_to_buy == 0
   end
 end
 
