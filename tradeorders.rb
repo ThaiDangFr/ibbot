@@ -41,11 +41,12 @@ end.select
 browser.select_list(name: "batch_order_type_uid").select("Limit")
 browser.textarea(name: "batch_txt").set(ordertxt)
 browser.driver.save_screenshot("output/#{pfname}.png")
+puts "Screenshot generated output/#{pfname}.png"
 
 browser.link(text: "Add to Order").click
 browser.link(text: "Review and Submit").click
 browser.link(text: "Send Order").click
-
+puts "Order submitted"
 
 
 

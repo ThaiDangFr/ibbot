@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 # Customize here the main script with your parameters
 
 export scriptPath=$(dirname $0)
