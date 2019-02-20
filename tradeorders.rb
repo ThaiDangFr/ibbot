@@ -27,7 +27,7 @@ outputdir = "output"
 
 ordertxt = File.read(orderfile)
 
-browser = Watir::Browser.new
+browser = Watir::Browser.new(:chrome, {:chromeOptions => {:args => ['--headless', '--window-size=1200x600']}})
 browser.goto(loginurl)
 browser.input(name: 'LoginUsername').send_keys(username)
 browser.input(name: 'LoginPassword').send_keys(password)
@@ -40,6 +40,8 @@ browser.select_list(name: "batch_account_uid").options.find do |option|
 end.select
 browser.select_list(name: "batch_order_type_uid").select("Limit")
 browser.textarea(name: "batch_txt").set(ordertxt)
+browser.driver.save_screenshot("output/#{pfname}.png")
+
 browser.link(text: "Add to Order").click
 browser.link(text: "Review and Submit").click
 browser.link(text: "Send Order").click
