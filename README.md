@@ -1,4 +1,4 @@
-# Goal :
+# IBBOT
 * Current state of your portfolio
 * Scrape simulation and extract the target stocks
 * Rebalance : buy and sell orders
