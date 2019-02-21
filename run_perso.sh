@@ -27,5 +27,4 @@ if [ "$DEBUG" == "1" ]; then
     set -x
 fi
 
-trade PRO 1557921
 trade PERSO 1557921
