@@ -7,10 +7,11 @@ cd ${scriptPath}
 trade() {
     pfname=$1
     simid=$2
+    pct=$3
 
     ./extractpf.rb ${pfname}
     ./extractsim.rb ${simid}
-    ./genorders.rb ${pfname} ${simid}
+    ./genorders.rb ${pfname} ${simid} ${pct}
 
     if [ "$DEBUG" != "1" ]; then
 	./tradeorders.rb ${pfname} output/${pfname}-${simid}-orders.txt
@@ -27,4 +28,5 @@ if [ "$DEBUG" == "1" ]; then
     set -x
 fi
 
-trade PERSO 1557921
+trade PERSO 1557921 95
+trade PERSO 1558659 5

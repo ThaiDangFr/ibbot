@@ -10,12 +10,20 @@ SELLPRICE = 1-SLIPPAGE
 BUYPRICE = 1 + SLIPPAGE
 outputdir = "output"
 
-pf = "output/#{ARGV[0]}.json"
-target = "output/#{ARGV[1]}.json"
 
-if pf.nil? or target.nil?
-  raise "Syntax : #{__FILE__} <portfolio name> <sim id>"
+if ARGV.length < 3
+  raise "Syntax : #{__FILE__} <portfolio name> <sim id> <percent>"
 end
+
+pfname = ARGV[0]
+simid = ARGV[1]
+pctid = ARGV[2]
+
+pf = "output/#{pfname}.json"
+
+
+target = "output/#{simid}.json"
+
 
 orders = Array.new
 
@@ -23,7 +31,8 @@ jpf = JSON.parse(File.read(pf))
 jtarget = JSON.parse(File.read(target))
 target_ticker_price_hash = jtarget.map { |x| [x["ticker"], x["price"]] }.to_h
 
-availablecash = jpf["liquidation"].to_f*(1-CASHPCT)
+liquidation = (jpf["liquidation"].to_f)*pctid/100
+availablecash = liquidation*(1-CASHPCT)
 nb = target_ticker_price_hash.length
 
 maxmktvalue = availablecash / nb
@@ -67,8 +76,10 @@ target_ticker_price_hash.each do |t,p|
 end
 
 
+
+
 FileUtils.mkdir_p "#{outputdir}" unless File.exists? "#{outputdir}"
-filename = "#{ARGV[0]}-#{ARGV[1]}-orders.txt"
+filename = "#{pfname}-#{simid}-orders.txt"
 open("#{outputdir}/#{filename}","w") { |f|
   f.puts(orders)
   puts "File #{outputdir}/#{filename} generated"
