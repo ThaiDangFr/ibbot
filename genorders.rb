@@ -31,7 +31,7 @@ jpf = JSON.parse(File.read(pf))
 jtarget = JSON.parse(File.read(target))
 target_ticker_price_hash = jtarget.map { |x| [x["ticker"], x["price"]] }.to_h
 
-liquidation = (jpf["liquidation"].to_f)*pctid/100
+liquidation = (jpf["liquidation"].to_f)*pctid.to_f/100
 availablecash = liquidation*(1-CASHPCT)
 nb = target_ticker_price_hash.length
 

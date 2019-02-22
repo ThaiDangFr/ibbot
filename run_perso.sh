@@ -28,5 +28,5 @@ if [ "$DEBUG" == "1" ]; then
     set -x
 fi
 
-trade PERSO 1557921 95
-trade PERSO 1558659 5
+trade PERSO 1557921 100
+#trade PERSO 1558659 5
