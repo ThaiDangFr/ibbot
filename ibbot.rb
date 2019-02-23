@@ -80,6 +80,72 @@ class Stock
   end
 end
 
+
+class Portfolio < Array
+  attr_accessor :username, :password, :pfname, :liquidation
+
+  def initialize(username, password, pfname)
+    @username = username
+    @password = password
+    @pfname = pfname
+
+    @agent = Mechanize.new
+    @agent.verify_mode = OpenSSL::SSL::VERIFY_NONE
+    @agent.user_agent_alias = 'Linux Firefox'
+    super()
+  end
+
+  def login
+    loginurl = "https://www.portfolio123.com/login.jsp?url=%2F"
+    page = @agent.get(loginurl)
+    form = page.forms.first
+
+
+    form["LoginUsername"] = @username
+    form["LoginPassword"] = @password
+    form["url"] = "/"
+    @agent.submit(form, form.buttons.first)
+
+    $logger.debug("#{username} logged in")
+  end
+
+  def import
+    pfurl = "https://www.portfolio123.com/app/trade/accounts"
+    page = @agent.get(pfurl)
+
+    ### parse Liquidation field ###
+    doc = page.parser
+    pliq = doc.css('div#trade-cont2 tbody tr').select { |x| x.css('td')[0].text == @pfname }.first
+    @liquidation = pliq.css('td')[8].text.gsub(/[^\d^\.]/,'').to_f
+    
+    $logger.debug "liquidation = #{@liquidation}"
+
+    ### parse Current Stock Positions field ###
+    psto = doc.css('div#pos-tbl-cont table')[1].css('tbody tr').select { |x| x.css('td')[0].text == @pfname }
+    psto.each do |p|
+      ticker = p.css('td')[1].css('span')[0].text
+      shares = p.css('td')[3].text.to_i
+      avgcost = p.css('td')[7].text.gsub(/[^\d^\.]/,'').to_f
+
+      stock = Stock.new(ticker)
+      stock.shares = shares
+      stock.avgcost = avgcost
+      stock.liquidation = @liquidation
+
+      self.push stock
+    end
+    
+    $logger.debug "#{self.length} stocks imported"
+  end
+
+
+end
+
+class Simulation < Array
+end
+
+
+
 #stock = Stock.new("agtc")
 #stock.liquidation = 156202
 #stock.shares = 486
@@ -94,15 +160,27 @@ begin
     opts.banner = "Usage: #{__FILE__} [options]"
 
     options[:logfile] = nil
-    opts.on( '-l', '--logfile FILE', 'Write log to FILE' ) do|file|
+    opts.on('-l', '--logfile FILE', 'Write log to FILE' ) do |file|
       options[:logfile] = file
       $logger = Logger.new(file)
     end
 
     options[:verbose] = false
-    opts.on("-v", "--verbose", "Output more information") do
+    opts.on('-v', '--verbose', 'Output more information') do
       options[:verbose] = true
       $logger.level = Logger::DEBUG
+    end
+
+    opts.on('--login LOGIN', 'Portfolio123 login' ) do |login|
+      options[:login] = login
+    end
+    
+    opts.on('--password PASSWORD', 'Portfolio123 password' ) do |password|
+      options[:password] = password
+    end
+
+    opts.on('--import_pf PF_NAME', 'Portfolio name' ) do |pf_name|
+      options[:pf_name] = pf_name
     end
 
     opts.on( '-h', '--help', 'Display this screen' ) do
@@ -114,9 +192,33 @@ begin
   optparse.parse!
   puts "Being verbose" if options[:verbose]
   puts "Logging to file #{options[:logfile]}" if options[:logfile]
-
-
+  
   $logger.debug("Begin")
+  
+  pf_name=options[:pf_name]
+  login=options[:login]
+  password=options[:password]
+  
+  mandatory = [:login, :password]                                        
+  missing = mandatory.select{ |param| options[param].nil? }            
+  if not missing.empty?                                                 
+        puts "Missing options: #{missing.join(', ')}"                   
+        puts optparse.help                                              
+        exit 2                                                          
+  end  
+
+
+
+  if not pf_name.nil?
+    $logger.debug("Importing #{pf_name}")
+    portfolio = Portfolio.new(login,password,pf_name)
+    portfolio.login
+    portfolio.import
+    $logger.debug(portfolio)
+  end
+  
+
+
 
 
 
