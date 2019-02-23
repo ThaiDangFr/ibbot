@@ -271,7 +271,7 @@ begin
     options[:logfile] = nil
     opts.on('-l', '--logfile FILE', 'Write log to FILE' ) do |file|
       options[:logfile] = file
-      $logger = Logger.new(file)
+      $logger = Logger.new(file, 10, 4096000)
     end
 
     options[:verbose] = false
