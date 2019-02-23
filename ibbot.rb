@@ -116,6 +116,24 @@ class StockArray < Array
   def print_stocklist
     $logger.debug self.map { |x| x.code}.join(" ")
   end
+
+  def profit_loss
+    total = 0
+    self.each do |s|
+      total += s.profit_loss
+    end
+    total
+  end
+
+  def orders
+    array = Array.new
+    self.each do |s|
+      order = s.order
+      array.push(order) unless order.nil?
+    end
+    array.join("\n")
+  end
+
 end
 
 
@@ -175,10 +193,8 @@ class Portfolio < StockArray
     
     $logger.debug "#{self.length} stocks imported"
   end
-
-
-
 end
+
 
 class Simulation < Portfolio
   attr_accessor :username, :password, :simid
@@ -199,10 +215,50 @@ class Simulation < Portfolio
 
     $logger.debug "#{self.length} stocks imported"
   end
-
-
 end
 
+
+class Trade
+  def initialize(username, password, commit=false)
+    @username = username
+    @password = password
+    @commit = commit
+    
+    @browser = Watir::Browser.new(:chrome, {:chromeOptions => {:args => ['--headless', '--window-size=1200x600']}})
+    #@browser = Watir::Browser.new(:chrome)
+  end
+
+  def login
+    loginurl = "https://www.portfolio123.com/login.jsp?url=%2F"
+    @browser.goto(loginurl)
+    @browser.input(name: 'LoginUsername').send_keys(@username)
+    @browser.input(name: 'LoginPassword').send_keys(@password)
+    @browser.input(name: 'Login').click
+  end
+
+  def submitOrder(pfname, ordertxt)
+    tradeurl = "https://www.portfolio123.com/app/trade/orderBatch"
+    @browser.goto(tradeurl)
+    @browser.text_field(name: 'batch_source_name').set("ibbot #{Time.now}")
+    @browser.select_list(name: "batch_account_uid").options.find do |option|
+      option.text.include? pfname
+    end.select
+    @browser.select_list(name: "batch_order_type_uid").select("Limit")
+    @browser.textarea(name: "batch_txt").set(ordertxt)
+    
+    if not @commit
+      @browser.driver.save_screenshot("#{pfname}.png")
+      $logger.debug "Screenshot generated #{pfname}.png"
+      $logger.debug "Order NOT submitted"
+    else
+      @browser.link(text: "Add to Order").click
+      @browser.link(text: "Review and Submit").click
+      @browser.link(text: "Send Order").click
+      $logger.debug "Order submitted"
+    end
+  end
+
+end
 
 
 
@@ -224,8 +280,8 @@ begin
       $logger.level = Logger::DEBUG
     end
 
-    opts.on('--login LOGIN', 'Portfolio123 login' ) do |login|
-      options[:login] = login
+    opts.on('--username USERNAME', 'Portfolio123 username' ) do |username|
+      options[:username] = username
     end
     
     opts.on('--password PASSWORD', 'Portfolio123 password' ) do |password|
@@ -241,6 +297,11 @@ begin
       options[:sim] << sim
     end
 
+    options[:commit] = false
+    opts.on('--commit', 'Send order to trade' ) do |t|
+      options[:commit] = t
+    end
+
     opts.on( '-h', '--help', 'Display this screen' ) do
       puts opts
       exit
@@ -250,13 +311,15 @@ begin
   optparse.parse!
   puts "Being verbose" if options[:verbose]
   puts "Logging to file #{options[:logfile]}" if options[:logfile]
+  puts "!! TRADE will be commited !!" if options[:commit]
     
   pf_name=options[:pf_name]
-  login=options[:login]
+  username=options[:username]
   password=options[:password]
   sim=options[:sim]
+  commit=options[:commit]
 
-  mandatory = [:login, :password]                                        
+  mandatory = [:username, :password]                                        
   missing = mandatory.select{ |param| options[param].nil? }            
   if not missing.empty?                                                 
         puts "Missing options: #{missing.join(', ')}"                   
@@ -267,15 +330,12 @@ begin
 
 
 
-
-
-
   totalportfolio = StockArray.new
   liquidation = 0
 
   if not pf_name.nil?
     $logger.debug("Importing #{pf_name}")
-    portfolio = Portfolio.new(login,password,pf_name)
+    portfolio = Portfolio.new(username,password,pf_name)
     portfolio.login
     portfolio.import
     liquidation = portfolio.liquidation
@@ -289,7 +349,7 @@ begin
     pct = x.split(':')[1]
 
     $logger.debug "Importing Sim #{simid} for #{pct}%"
-    simulation = Simulation.new(login,password,simid)
+    simulation = Simulation.new(username,password,simid)
     simulation.login
     simulation.import
     simulation.print_stocklist
@@ -309,9 +369,16 @@ begin
   end
 
   $logger.debug "Total portfolio length = #{totalportfolio.length}"
+  $logger.debug "Total portfolio profit and loss = #{totalportfolio.profit_loss}"
   totalportfolio.print_debug_header
   totalportfolio.print_debug
 
+  ordertxt = totalportfolio.orders
+  $logger.debug "Orders:\n#{ordertxt}"
+
+  trade = Trade.new(username, password, commit)
+  trade.login
+  trade.submitOrder(pf_name, ordertxt)
 
 
 rescue => err
