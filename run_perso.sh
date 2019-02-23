@@ -3,30 +3,5 @@
 
 export scriptPath=$(dirname $0)
 cd ${scriptPath}
+./ibbot.rb -v --login $P123USR --password $P123PWD --import_pf PERSO --import_sim 1557921:93 --import_sim 1558659:5
 
-trade() {
-    pfname=$1
-    simid=$2
-    pct=$3
-
-    ./extractpf.rb ${pfname}
-    ./extractsim.rb ${simid}
-    ./genorders.rb ${pfname} ${simid} ${pct}
-
-    if [ "$DEBUG" != "1" ]; then
-	./tradeorders.rb ${pfname} output/${pfname}-${simid}-orders.txt
-    else
-	echo "DEBUG mode : tradeorders.rb not executed"
-    fi
-
-    mkdir -p output/done
-    mv output/*.* output/done/
-}
-
-if [ "$DEBUG" == "1" ]; then
-    echo "Running in debugging mode"
-    set -x
-fi
-
-trade PERSO 1557921 100
-#trade PERSO 1558659 5

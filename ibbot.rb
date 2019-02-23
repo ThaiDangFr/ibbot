@@ -8,6 +8,7 @@ require 'iex-ruby-client'
 require 'fileutils'
 require 'watir'
 require 'optparse'
+require 'pp'
 
 SLIPPAGE = 0.0025 # 0.25%
 $logger = Logger.new(STDOUT)
@@ -21,10 +22,10 @@ class Stock
   def initialize(code)
     @code = code
     @last = IEX::Resources::Quote.get(code).latest_price
-    @liquidation = 0
+    @liquidation = 0.0
     @shares = 0
-    @avgcost = 0
-    @pct = 0
+    @avgcost = 0.0
+    @pct = 0.0
   end
 
   def mktvalue
@@ -78,10 +79,48 @@ class Stock
   def profit_loss
     (@last-@avgcost)*shares
   end
+
+  def print_debug
+    $logger.debug("#{@code} | #{@shares} | #{@avgcost} | #{@pct} % | #{order} | #{profit_loss}")
+  end
 end
 
 
-class Portfolio < Array
+class StockArray < Array
+  def merge(array)
+    array.each do |newstock|
+      existing = self.find_all { |s| s.code == newstock.code }
+      
+      existing.each do |existingstock|
+        existingstock.shares +=  newstock.shares
+        existingstock.pct +=  newstock.pct
+      end
+
+      if existing.empty?
+        self.push newstock
+      end
+
+    end
+  end
+
+  def print_debug_header
+    $logger.debug("code | shares | avgcost | pct % | order | profit_loss")
+  end
+
+  def print_debug
+    self.each do |s|
+      s.print_debug
+    end
+  end
+
+  def print_stocklist
+    $logger.debug self.map { |x| x.code}.join(" ")
+  end
+end
+
+
+
+class Portfolio < StockArray
   attr_accessor :username, :password, :pfname, :liquidation
 
   def initialize(username, password, pfname)
@@ -92,7 +131,6 @@ class Portfolio < Array
     @agent = Mechanize.new
     @agent.verify_mode = OpenSSL::SSL::VERIFY_NONE
     @agent.user_agent_alias = 'Linux Firefox'
-    super()
   end
 
   def login
@@ -106,7 +144,7 @@ class Portfolio < Array
     form["url"] = "/"
     @agent.submit(form, form.buttons.first)
 
-    $logger.debug("#{username} logged in")
+    $logger.debug("Authentication OK")
   end
 
   def import
@@ -139,19 +177,34 @@ class Portfolio < Array
   end
 
 
+
 end
 
-class Simulation < Array
+class Simulation < Portfolio
+  attr_accessor :username, :password, :simid
+
+  def initialize(username, password, simid)
+    super
+    @simid = simid
+  end
+
+  def import
+    pfurl = "https://www.portfolio123.com/p123/DownloadPortHoldings?portid=#{@simid}"
+    page = @agent.get(pfurl)
+    array = page.content.split("\n").map { |x| x.chomp.split("\t")[1] }.reject { |x| x == "Ticker" }
+    array.each do |ticker|
+      stock = Stock.new(ticker)
+      self.push stock
+    end
+
+    $logger.debug "#{self.length} stocks imported"
+  end
+
+
 end
 
 
 
-#stock = Stock.new("agtc")
-#stock.liquidation = 156202
-#stock.shares = 486
-#stock.avgcost = 3
-#stock.pct = 1
-#p stock.profit_loss
 
 begin
 
@@ -183,6 +236,11 @@ begin
       options[:pf_name] = pf_name
     end
 
+    options[:sim] = Array.new
+    opts.on('--import_sim SIMID:PCT', 'Simulation ID:Percent allocated' ) do |sim|
+      options[:sim] << sim
+    end
+
     opts.on( '-h', '--help', 'Display this screen' ) do
       puts opts
       exit
@@ -192,13 +250,12 @@ begin
   optparse.parse!
   puts "Being verbose" if options[:verbose]
   puts "Logging to file #{options[:logfile]}" if options[:logfile]
-  
-  $logger.debug("Begin")
-  
+    
   pf_name=options[:pf_name]
   login=options[:login]
   password=options[:password]
-  
+  sim=options[:sim]
+
   mandatory = [:login, :password]                                        
   missing = mandatory.select{ |param| options[param].nil? }            
   if not missing.empty?                                                 
@@ -209,16 +266,51 @@ begin
 
 
 
+
+
+
+
+  totalportfolio = StockArray.new
+  liquidation = 0
+
   if not pf_name.nil?
     $logger.debug("Importing #{pf_name}")
     portfolio = Portfolio.new(login,password,pf_name)
     portfolio.login
     portfolio.import
-    $logger.debug(portfolio)
+    liquidation = portfolio.liquidation
+
+    portfolio.print_stocklist   
+    totalportfolio.merge(portfolio)
   end
   
+  sim.each do |x|
+    simid = x.split(':')[0]
+    pct = x.split(':')[1]
 
+    $logger.debug "Importing Sim #{simid} for #{pct}%"
+    simulation = Simulation.new(login,password,simid)
+    simulation.login
+    simulation.import
+    simulation.print_stocklist
 
+    len = simulation.length
+    pct_each = pct.to_f/len
+    simulation.each do |s|
+      s.pct = pct_each
+    end
+
+    #simulation.print_debug
+    totalportfolio.merge(simulation)
+  end
+
+  totalportfolio.each do |s|
+    s.liquidation = liquidation
+  end
+
+  $logger.debug "Total portfolio length = #{totalportfolio.length}"
+  totalportfolio.print_debug_header
+  totalportfolio.print_debug
 
 
 
