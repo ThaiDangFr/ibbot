@@ -117,7 +117,7 @@ class StockArray < Array
   end
 
   def print_stocklist
-    $logger.debug self.map { |x| x.code}.join(" ")
+    $logger.debug self.map { |x| x.code}.join(" ") unless self.empty?
   end
 
   def profit_loss
@@ -134,7 +134,12 @@ class StockArray < Array
       order = s.order
       array.push(order) unless order.nil?
     end
-    array.join("\n")
+
+    if array.empty?
+      nil
+    else
+      array.join("\n")
+    end
   end
 
 end
@@ -342,10 +347,16 @@ begin
   end  
 
 
-
-
   totalportfolio = StockArray.new
   liquidation = 0
+
+
+  if testonly
+    $logger.debug "Beginning tests"
+  end
+
+
+
 
   if not pf_name.nil?
     $logger.debug("Importing #{pf_name}")
@@ -392,24 +403,33 @@ begin
 
   # sharepct to non zero existing ones
   tpf = totalportfolio.reject { |s| s.pct == 0 }
-  sharepct_each = sharepct/tpf.length
-  $logger.debug "Give #{sharepct_each.round(2)}% to #{tpf.length} stocks"
-  tpf.each do |s|
-    s.pct += sharepct_each
+  tpflen = tpf.length
+  if tpflen != 0 and sharepct != 0
+    sharepct_each = sharepct/tpflen
+    $logger.debug "Give #{sharepct_each.round(2)}% to #{tpflen} stocks"
+    tpf.each do |s|
+      s.pct += sharepct_each
+    end
   end
 
 
-  $logger.debug "Total portfolio length = #{totalportfolio.length}"
-  $logger.debug "Total portfolio profit and loss = #{totalportfolio.profit_loss}"
-  totalportfolio.print_debug_header
-  totalportfolio.print_debug
+  totalportfoliolen = totalportfolio.length
 
-  ordertxt = totalportfolio.orders
-  $logger.debug "Orders:\n#{ordertxt}"
+  if totalportfoliolen != 0
+    $logger.debug "Total portfolio length = #{totalportfoliolen}"
+    $logger.debug "Total portfolio profit and loss = #{totalportfolio.profit_loss}"
+    totalportfolio.print_debug_header
+    totalportfolio.print_debug
 
-  trade = Trade.new(username, password, commit)
-  trade.login
-  trade.submitOrder(pf_name, ordertxt)
+    ordertxt = totalportfolio.orders
+    $logger.debug "Orders:\n#{ordertxt}" unless ordertxt.nil?
+  end
+
+  if not pf_name.nil? and not ordertxt.nil?
+    trade = Trade.new(username, password, commit)
+    trade.login
+    trade.submitOrder(pf_name, ordertxt)
+  end
 
 
 rescue => err
