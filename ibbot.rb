@@ -205,6 +205,15 @@ class Portfolio < StockArray
   end
 
   def runtest
+    pfurl = "https://www.portfolio123.com/app/trade/accounts"
+    page = @agent.get(pfurl)
+    doc = page.parser
+    active_account = doc.css('div#trade-cont2 tbody tr').select { |x| x.css('td')[2].text.include? "Active" }.length
+    if active_account != 0
+      $logger.debug "Found #{active_account} active account"
+    else
+      raise "No active account found !"
+    end
   end
 end
 
@@ -234,6 +243,17 @@ class Simulation < Portfolio
   end
 
   def runtest
+    # GARP $100K holdings
+    pfurl = "https://www.portfolio123.com/p123/DownloadPortHoldings?portid=1004872"
+    page = @agent.get(pfurl)
+    array = page.content.split("\n").reject { |x| x == "no rows" }.map { |x| x.chomp.split("\t")[1] }.reject { |x| x == "Ticker" }
+    len = array.length
+    
+    if len != 0
+      $logger.debug "Found #{len} GARP stocks : #{array.join(' ')}"
+    else
+      raise "No GARP stocks found !"
+    end
   end
 end
 
@@ -280,6 +300,21 @@ class Trade
   end
 
   def runtest
+    tradeurl = "https://www.portfolio123.com/app/trade/orderBatch"
+    @browser.goto(tradeurl)
+
+    source = @browser.text_field(name: 'batch_source_name').exists?
+    accounts = @browser.select_list(name: "batch_account_uid").exists?
+    ordertype = @browser.select_list(name: "batch_order_type_uid").exists?
+    ordertxt = @browser.textarea(name: "batch_txt").exists?
+    submit = @browser.link(text: "Add to Order").exists?
+
+    if source and accounts and ordertype and ordertxt and submit
+      $logger.debug "Submit form is conform"
+    else
+      raise "Submit form not conform !"
+    end
+
   end
 
 end
@@ -361,9 +396,9 @@ begin
   end  
 
 
+  $logger.debug "--BEGIN--"
   totalportfolio = StockArray.new
   liquidation = 0
-
 
   if testonly
     $logger.debug "Testing Portfolio"
@@ -453,7 +488,7 @@ begin
   end
 
   if not pf_name.nil? and not ordertxt.nil?
-    $logger.debug "Trading"
+    $logger.debug "Trading orders"
     trade = Trade.new(username, password, commit)
     trade.login
     trade.submitOrder(pf_name, ordertxt)
@@ -463,5 +498,9 @@ begin
 rescue => err
   $logger.fatal("Caught exception; exiting")
   $logger.fatal(err)
+  exit 1
+
+ensure
+  $logger.debug "--END--"
 end
 
