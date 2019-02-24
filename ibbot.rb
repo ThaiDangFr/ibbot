@@ -149,7 +149,7 @@ end
 class Portfolio < StockArray
   attr_accessor :username, :password, :pfname, :liquidation
 
-  def initialize(username, password, pfname)
+  def initialize(username, password, pfname=nil)
     @username = username
     @password = password
     @pfname = pfname
@@ -174,6 +174,8 @@ class Portfolio < StockArray
   end
 
   def import
+    raise "Cannot import because no pfname defined" if @pfname.nil?
+
     pfurl = "https://www.portfolio123.com/app/trade/accounts"
     page = @agent.get(pfurl)
 
@@ -201,18 +203,23 @@ class Portfolio < StockArray
     
     $logger.debug "#{self.length} stocks imported"
   end
+
+  def runtest
+  end
 end
 
 
 class Simulation < Portfolio
   attr_accessor :username, :password, :simid
 
-  def initialize(username, password, simid)
+  def initialize(username, password, simid=nil)
     super
     @simid = simid
   end
 
   def import
+    raise "Cannot import because no simid defined" if @simid.nil?
+
     pfurl = "https://www.portfolio123.com/p123/DownloadPortHoldings?portid=#{@simid}"
     page = @agent.get(pfurl)
 
@@ -224,6 +231,9 @@ class Simulation < Portfolio
     end
 
     $logger.debug "#{self.length} stocks imported"
+  end
+
+  def runtest
   end
 end
 
@@ -244,6 +254,7 @@ class Trade
     @browser.input(name: 'LoginUsername').send_keys(@username)
     @browser.input(name: 'LoginPassword').send_keys(@password)
     @browser.input(name: 'Login').click
+    $logger.debug("Authentication OK")
   end
 
   def submitOrder(pfname, ordertxt)
@@ -266,6 +277,9 @@ class Trade
       @browser.link(text: "Send Order").click
       $logger.debug "Order submitted"
     end
+  end
+
+  def runtest
   end
 
 end
@@ -352,7 +366,20 @@ begin
 
 
   if testonly
-    $logger.debug "Beginning tests"
+    $logger.debug "Testing Portfolio"
+    portfolio = Portfolio.new(username,password)
+    portfolio.login
+    portfolio.runtest
+    
+    $logger.debug "Testing Simulation"
+    simulation = Simulation.new(username,password)
+    simulation.login
+    simulation.runtest
+
+    $logger.debug "Testing Trade"
+    trade = Trade.new(username, password)
+    trade.login
+    trade.runtest
   end
 
 
@@ -426,6 +453,7 @@ begin
   end
 
   if not pf_name.nil? and not ordertxt.nil?
+    $logger.debug "Trading"
     trade = Trade.new(username, password, commit)
     trade.login
     trade.submitOrder(pf_name, ordertxt)
