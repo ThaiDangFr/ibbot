@@ -307,6 +307,13 @@ begin
       options[:commit] = t
     end
 
+    options[:testonly] = false
+    opts.on('--testonly', 'Doing only some tests' ) do |t|
+      options[:testonly] = t
+    end
+
+
+
     opts.on( '-h', '--help', 'Display this screen' ) do
       puts opts
       exit
@@ -315,6 +322,7 @@ begin
 
   optparse.parse!
   puts "Being verbose" if options[:verbose]
+  puts "Testing mode" if  options[:testonly]
   puts "Logging to file #{options[:logfile]}" if options[:logfile]
   puts "!! TRADE will be commited !!" if options[:commit]
     
@@ -323,6 +331,7 @@ begin
   password=options[:password]
   sim=options[:sim]
   commit=options[:commit]
+  testonly= options[:testonly]
 
   mandatory = [:username, :password]                                        
   missing = mandatory.select{ |param| options[param].nil? }            
