@@ -9,6 +9,9 @@ require 'fileutils'
 require 'watir'
 require 'optparse'
 require 'pp'
+require 'byebug'
+
+
 
 SLIPPAGE = 0.0025 # 0.25%
 $logger = Logger.new(STDOUT)
@@ -207,7 +210,9 @@ class Simulation < Portfolio
   def import
     pfurl = "https://www.portfolio123.com/p123/DownloadPortHoldings?portid=#{@simid}"
     page = @agent.get(pfurl)
-    array = page.content.split("\n").map { |x| x.chomp.split("\t")[1] }.reject { |x| x == "Ticker" }
+
+    array = page.content.split("\n").reject { |x| x == "no rows" }.map { |x| x.chomp.split("\t")[1] }.reject { |x| x == "Ticker" }
+
     array.each do |ticker|
       stock = Stock.new(ticker)
       self.push stock
@@ -344,9 +349,12 @@ begin
     totalportfolio.merge(portfolio)
   end
   
+  
+  # if no stocks are found in a sim, the pct is shared to other sims with sharepct
+  sharepct = 0
   sim.each do |x|
     simid = x.split(':')[0]
-    pct = x.split(':')[1]
+    pct = x.split(':')[1].to_f
 
     $logger.debug "Importing Sim #{simid} for #{pct}%"
     simulation = Simulation.new(username,password,simid)
@@ -355,9 +363,14 @@ begin
     simulation.print_stocklist
 
     len = simulation.length
-    pct_each = pct.to_f/len
-    simulation.each do |s|
-      s.pct = pct_each
+    if len != 0
+      pct_each = pct/len
+      simulation.each do |s|
+        s.pct = pct_each
+      end
+    elsif len == 0
+      $logger.debug "Recycle #{pct}% from empty simulation"
+      sharepct += pct
     end
 
     #simulation.print_debug
@@ -367,6 +380,15 @@ begin
   totalportfolio.each do |s|
     s.liquidation = liquidation
   end
+
+  # sharepct to non zero existing ones
+  tpf = totalportfolio.reject { |s| s.pct == 0 }
+  sharepct_each = sharepct/tpf.length
+  $logger.debug "Give #{sharepct_each.round(2)}% to #{tpf.length} stocks"
+  tpf.each do |s|
+    s.pct += sharepct_each
+  end
+
 
   $logger.debug "Total portfolio length = #{totalportfolio.length}"
   $logger.debug "Total portfolio profit and loss = #{totalportfolio.profit_loss}"
