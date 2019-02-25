@@ -47,11 +47,6 @@ begin
     end
   end
 
-  # change $logger format
-  $logger.formatter = proc do |severity, datetime, progname, msg|
-    date_format = datetime.strftime("%d-%m-%Y %H:%M:%S.%6N")
-    "#{severity[0]} [#{date_format}] : #{msg}\n"
-  end
 
   optparse.parse!
   puts "Being verbose" if options[:verbose]
@@ -63,6 +58,12 @@ begin
         puts optparse.help                                              
         exit 2                                                          
   end  
+
+  # change $logger format
+  $logger.formatter = proc do |severity, datetime, progname, msg|
+    date_format = datetime.strftime("%d-%m-%Y %H:%M:%S.%6N")
+    "#{severity[0]} [#{date_format}] : #{msg}\n"
+  end
 
 
   total = Array.new
