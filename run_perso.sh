@@ -8,7 +8,5 @@ LOGFILE=perso.log
 ./ibbot.rb -v --username $P123USR --password $P123PWD --import_pf PERSO --import_sim 1557921:74 --import_sim 1558659:4 --import_sim 1559123:20 --logfile $LOGFILE --commit
 
 if [ $? -ne 0 ];then
-    tail -200 $LOGFILE > part-${LOGFILE}
-    mail -s "IBBOT failed | $LOGFILE" $P123MAIL < part-${LOGFILE}
-    rm part-${LOGFILE}
+    ./report.rb --email $P123MAIL --subject "IBBOT failed | $LOGFILE" --logfile $LOGFILE
 fi

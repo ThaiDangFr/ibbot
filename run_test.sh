@@ -8,10 +8,6 @@ LOGFILE=test.log
 ./ibbot.rb -v --username $P123USR --password $P123PWD --testonly --logfile $LOGFILE
 
 if [ $? -ne 0 ];then
-    echo "Test failed"
-    tail -20 $LOGFILE > part-${LOGFILE}
-    cat part-${LOGFILE}
-    mail -s "IBBOT tests failed" $P123MAIL < part-${LOGFILE}
-    rm part-${LOGFILE}
+    ./report.rb --email $P123MAIL --subject "IBBOT tests failed | $LOGFILE" --logfile $LOGFILE
 fi
 
