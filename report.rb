@@ -16,7 +16,6 @@ require 'tempfile'
 $logger = Logger.new(STDOUT)
 $logger.level = Logger::ERROR
 
-
 begin
 
   options = {}
@@ -46,6 +45,12 @@ begin
       puts opts
       exit
     end
+  end
+
+  # change $logger format
+  $logger.formatter = proc do |severity, datetime, progname, msg|
+    date_format = datetime.strftime("%d-%m-%Y %H:%M:%S.%6N")
+    "#{severity[0]} [#{date_format}] : #{msg}\n"
   end
 
   optparse.parse!
