@@ -489,6 +489,7 @@ begin
 
   if not pf_name.nil? and not ordertxt.nil?
     $logger.debug "Trading orders"
+    $logger.debug "Commit : #{commit}"
     trade = Trade.new(username, password, commit)
     trade.login
     trade.submitOrder(pf_name, ordertxt)
