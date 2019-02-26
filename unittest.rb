@@ -136,6 +136,13 @@ class TestIbbot < Test::Unit::TestCase
     assert orders.scan(/(.*SELL.*)/).length > 0
     assert orders.scan(/(.*BUY.*)/).length == 0
     
+    total = calculate_orders(orders)
+    ratiopct = ((1-(-total/liquidation))*100).round(2)
+    
+    $logger.debug "Check that total of sell not too far from liquidation : 0 < #{ratiopct}% < 5%"
+    assert ratiopct < 5
+    assert ratiopct > 0
+
     clean
   end
 
@@ -160,12 +167,10 @@ class TestIbbot < Test::Unit::TestCase
     assert orders.scan(/(.*BUY.*)/).length > 0
 
     total = calculate_orders(orders)
-    ratio = total/liquidation
 
-    $logger.debug "Check that ratio 0 < total of orders / liquidation < 0.3"
-    assert ratio > 0
-    assert ratio < 0.3
-  
+    $logger.debug "Check that total of orders : -liquidation < #{total.round(2)} < +liquidation"
+    assert total > -liquidation
+    assert total < liquidation
 
     clean
   end
