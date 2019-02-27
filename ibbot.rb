@@ -222,7 +222,7 @@ class Simulation < Portfolio
   attr_accessor :username, :password, :simid
 
   def initialize(username, password, simid=nil)
-    super
+    super(username, password)
     @simid = simid
   end
 
@@ -243,27 +243,24 @@ class Simulation < Portfolio
   end
 
   def runtest
-    # GARP $100K holdings
-    pfurl = "https://www.portfolio123.com/p123/DownloadPortHoldings?portid=1004872"
+    pfurl = "https://www.portfolio123.com/p123/DownloadPortHoldings?portid=#{@simid}"
     page = @agent.get(pfurl)
     array = page.content.split("\n").reject { |x| x == "no rows" }.map { |x| x.chomp.split("\t")[1] }.reject { |x| x == "Ticker" }
     len = array.length
     
     if len != 0
-      $logger.debug "Found #{len} GARP stocks : #{array.join(' ')}"
+      $logger.debug "Found #{len} stocks : #{array.join(' ')}"
     else
-      raise "No GARP stocks found !"
+      raise "No stocks found !"
     end
   end
 end
 
 
-class Trade
-  def initialize(username, password, commit=false)
+class WatirConnect
+  def initialize(username, password)
     @username = username
     @password = password
-    @commit = commit
-    
     @browser = Watir::Browser.new(:chrome, {:chromeOptions => {:args => ['--headless', '--window-size=1200x600']}})
     #@browser = Watir::Browser.new(:chrome)
   end
@@ -275,6 +272,67 @@ class Trade
     @browser.input(name: 'LoginPassword').send_keys(@password)
     @browser.input(name: 'Login').click
     $logger.debug("Authentication OK")
+  end
+end
+
+class WatirSimulation < WatirConnect
+  def initialize(username, password)
+    super(username, password)
+    #@browser = Watir::Browser.new(:chrome)
+  end
+
+  def rebalance(simid)
+    reburl = "https://www.portfolio123.com/portf_rebalance.jsp?portid=#{simid}"
+    @browser.goto(reburl)
+
+    recalert = @browser.div(id: "recs-alert")
+    txtbefore = recalert.text
+    $logger.debug "Status : #{txtbefore}"
+
+    btngetrec = @browser.button(id: "btn-get-recs")
+    if not btngetrec.disabled? and btngetrec.exists?
+      $logger.debug "Clicking 'Get Recommendations'"
+      btngetrec.click
+    end
+
+    Watir::Wait.until { recalert.text != txtbefore }
+    txtafter = recalert.text
+    $logger.debug "New status : #{txtafter}"
+    
+    btncommit = @browser.button(id: "recs-commit")
+
+    if btncommit.present? and not btncommit.disabled?
+      btncommit.click
+      Watir::Wait.until { recalert.text != txtafter }
+      $logger.debug "Rebalance : committed"
+    else
+      $logger.debug "Rebalance : nothing to commit"
+    end
+    
+  end
+
+  def runtest(simid)
+    reburl = "https://www.portfolio123.com/portf_rebalance.jsp?portid=#{simid}"
+    @browser.goto(reburl)
+
+    recsalert = @browser.div(id: "recs-alert").exists?
+    btngetrecs = @browser.button(id: "btn-get-recs").exists?
+    recscommit = @browser.button(id: "recs-commit").exists?
+    
+    if recsalert and btngetrecs and recscommit
+      $logger.debug "Rebalance page is conform"
+    else
+      raise "Rebalance page is not conform !"
+    end
+  end
+end
+
+
+
+class Trade < WatirConnect
+  def initialize(username, password, commit=false)
+    super(username, password)
+    @commit = commit
   end
 
   def submitOrder(pfname, ordertxt)
@@ -356,6 +414,12 @@ begin
       options[:sim] << sim
     end
 
+    options[:rebalance] = false
+    opts.on('--rebalance', 'Rebalance SIM before importing them' ) do |t|
+      options[:rebalance] = t
+    end
+    
+
     options[:commit] = false
     opts.on('--commit', 'Send order to trade' ) do |t|
       options[:commit] = t
@@ -389,7 +453,8 @@ begin
   password=options[:password]
   sim=options[:sim]
   commit=options[:commit]
-  testonly= options[:testonly]
+  testonly=options[:testonly]
+  rebalance=options[:rebalance]
 
   mandatory = [:username, :password]                                        
   missing = mandatory.select{ |param| options[param].nil? }            
@@ -404,23 +469,45 @@ begin
   totalportfolio = StockArray.new
   liquidation = 0
 
-  if testonly
+  if testonly and not sim.empty?
+    simid = sim.first.split(':')[0]
+
     $logger.debug "Testing Portfolio"
     portfolio = Portfolio.new(username,password)
     portfolio.login
     portfolio.runtest
     
     $logger.debug "Testing Simulation"
-    simulation = Simulation.new(username,password)
+    simulation = Simulation.new(username,password, simid)
     simulation.login
     simulation.runtest
+
+
+    $logger.debug "Testing rebalance"
+    wsim = WatirSimulation.new(username, password)
+    wsim.login
+    wsim.runtest(simid)
 
     $logger.debug "Testing Trade"
     trade = Trade.new(username, password)
     trade.login
     trade.runtest
+
+    exit 0
   end
 
+
+  
+  if rebalance
+    $logger.debug("Rebalancing sims before importing")
+    wsim = WatirSimulation.new(username,password)
+    wsim.login
+    sim.each do |x|
+      simid = x.split(':')[0]
+      $logger.debug("Rebalancing #{simid}")
+      wsim.rebalance(simid)
+    end
+  end
 
 
 
