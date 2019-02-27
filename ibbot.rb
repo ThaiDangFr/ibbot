@@ -285,6 +285,12 @@ class WatirSimulation < WatirConnect
     reburl = "https://www.portfolio123.com/portf_rebalance.jsp?portid=#{simid}"
     @browser.goto(reburl)
 
+    rebalbtn = @browser.button(text: /Reconstitute & Rebalance/)
+    if rebalbtn.exists?
+      $logger.debug "Clicking 'Reconstitute & Rebalance'"
+      rebalbtn.click
+    end
+      
     recalert = @browser.div(id: "recs-alert")
     txtbefore = recalert.text
     $logger.debug "Status : #{txtbefore}"
