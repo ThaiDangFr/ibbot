@@ -358,8 +358,8 @@ class Trade < WatirConnect
     @browser.textarea(name: "batch_txt").set(ordertxt)
     
     if not @commit
-      @browser.driver.save_screenshot("#{pfname}.png")
-      $logger.debug "Screenshot generated #{pfname}.png"
+      #@browser.driver.save_screenshot("#{pfname}.png")
+      #$logger.debug "Screenshot generated #{pfname}.png"
       $logger.debug "Order NOT submitted"
     else
       @browser.link(text: "Add to Order").click
