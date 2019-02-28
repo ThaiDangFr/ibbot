@@ -86,6 +86,11 @@ class Stock
   def print_debug
     $logger.debug("#{@code} | #{@shares} | #{@avgcost} | #{@pct} % | #{order} | #{profit_loss}")
   end
+
+  def runtest
+    q = IEX::Resources::Quote.get(code)
+    $logger.debug "#{code} #{q.latest_price} #{q.change_percent_s}"
+  end
 end
 
 
@@ -219,17 +224,16 @@ end
 
 
 class Simulation < Portfolio
-  attr_accessor :username, :password, :simid
+  attr_accessor :username, :password
 
-  def initialize(username, password, simid=nil)
+  def initialize(username, password)
     super(username, password)
-    @simid = simid
   end
 
-  def import
-    raise "Cannot import because no simid defined" if @simid.nil?
+  def import(simid)
+    raise "Cannot import because no simid defined" if simid.nil?
 
-    pfurl = "https://www.portfolio123.com/p123/DownloadPortHoldings?portid=#{@simid}"
+    pfurl = "https://www.portfolio123.com/p123/DownloadPortHoldings?portid=#{simid}"
     page = @agent.get(pfurl)
 
     array = page.content.split("\n").reject { |x| x == "no rows" }.map { |x| x.chomp.split("\t")[1] }.reject { |x| x == "Ticker" }
@@ -242,17 +246,19 @@ class Simulation < Portfolio
     $logger.debug "#{self.length} stocks imported"
   end
 
-  def runtest
-    pfurl = "https://www.portfolio123.com/p123/DownloadPortHoldings?portid=#{@simid}"
+  def runtest(simid)
+    pfurl = "https://www.portfolio123.com/p123/DownloadPortHoldings?portid=#{simid}"
     page = @agent.get(pfurl)
     array = page.content.split("\n").reject { |x| x == "no rows" }.map { |x| x.chomp.split("\t")[1] }.reject { |x| x == "Ticker" }
+
     len = array.length
-    
     if len != 0
-      $logger.debug "Found #{len} stocks : #{array.join(' ')}"
+      $logger.debug "#{simid} : found #{len} stocks : #{array.join(' ')}"
     else
-      raise "No stocks found !"
+      $logger.debug "#{simid} : no stocks found"
     end
+
+    return len
   end
 end
 
@@ -326,9 +332,9 @@ class WatirSimulation < WatirConnect
     recscommit = @browser.button(id: "recs-commit").exists?
     
     if recsalert and btngetrecs and recscommit
-      $logger.debug "Rebalance page is conform"
+      $logger.debug "#{simid} : rebalance page is conform"
     else
-      raise "Rebalance page is not conform !"
+      raise "#{simid} : rebalance page is not conform !"
     end
   end
 end
@@ -476,25 +482,36 @@ begin
   liquidation = 0
 
   if testonly and not sim.empty?
-    simid = sim.first.split(':')[0]
+    $logger.debug "=> Testing IEX API"
+    stock = Stock.new "MSFT"
+    stock.runtest
 
-    $logger.debug "Testing Portfolio"
+    $logger.debug "=> Testing Portfolio"
     portfolio = Portfolio.new(username,password)
     portfolio.login
     portfolio.runtest
     
-    $logger.debug "Testing Simulation"
-    simulation = Simulation.new(username,password, simid)
+    $logger.debug "=> Testing Simulation"
+    simulation = Simulation.new(username,password)
     simulation.login
-    simulation.runtest
+    
+    totlen = 0
+    sim.each do |s|
+      simid = s.split(':')[0]
+      totlen += simulation.runtest simid
+    end
+    raise "Simulation : no stocks found !" unless totlen > 0
+    $logger.debug "Total stocks found : #{totlen}"
 
-
-    $logger.debug "Testing rebalance"
+    $logger.debug "=> Testing rebalance"
     wsim = WatirSimulation.new(username, password)
     wsim.login
-    wsim.runtest(simid)
+    sim.each do |s|
+      simid = s.split(':')[0]
+      wsim.runtest simid
+    end
 
-    $logger.debug "Testing Trade"
+    $logger.debug "=> Testing Trade"
     trade = Trade.new(username, password)
     trade.login
     trade.runtest
@@ -536,9 +553,9 @@ begin
     pct = x.split(':')[1].to_f
 
     $logger.debug "Importing Sim #{simid} for #{pct}%"
-    simulation = Simulation.new(username,password,simid)
+    simulation = Simulation.new(username,password)
     simulation.login
-    simulation.import
+    simulation.import simid
     simulation.print_stocklist
 
     len = simulation.length
