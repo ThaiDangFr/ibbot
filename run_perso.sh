@@ -4,6 +4,11 @@
 export scriptPath=$(dirname $0)
 cd ${scriptPath}
 
+if [ $(date +%w) -gt 5 ] ||  [ $(date +%w) -lt 1 ]; then
+    exit 0
+fi
+
+
 LOGFILE=perso.log
 ./ibbot.rb -v --username $P123USR --password $P123PWD --import_pf PERSO --import_sim 1557921:74 --import_sim 1558659:4 --import_sim 1559123:20 --logfile $LOGFILE --rebalance --commit
 
