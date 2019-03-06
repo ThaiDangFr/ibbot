@@ -219,6 +219,18 @@ class Portfolio < StockArray
     else
       raise "No active account found !"
     end
+    
+    acc = doc.css('div#trade-cont2 tbody tr').select { |x| x.css('td')[2].text.include? "Active" }
+    acc.each do |a|
+      accname = a.css('td')[0].text
+      accbalance = a.css('td')[7].text.gsub(/[^\d^\.]/,'').to_f
+      if accbalance > 0
+        $logger.debug("Balance #{accname} #{accbalance} is positive")
+      else
+        raise "Balance #{accname} #{accbalance} is negative !"
+      end
+    end
+
   end
 end
 
