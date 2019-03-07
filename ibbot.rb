@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-require 'mechanize'
+#require 'mechanize'
 require 'logger'
 require 'json'
 require 'fileutils'
@@ -94,6 +94,41 @@ class Stock
 end
 
 
+# http://watir.com/guides/chrome/
+class WatirConnect
+   attr_accessor :browser
+
+  def initialize(username, password)
+    @username = username
+    @password = password
+
+    # prefs = {
+    #   download: {
+    #     prompt_for_download: false,
+    #     default_directory: '/tmp'
+    #   }
+    # }
+
+    #@browser = Watir::Browser.new(:chrome, {:chromeOptions => {:args => ['--headless', '--window-size=1200x600']}})
+    @browser = Watir::Browser.new :chrome
+  end
+
+  def login
+    loginurl = "https://www.portfolio123.com/app/auth"
+    @browser.goto(loginurl)
+    title = @browser.title
+
+    @browser.input(name: 'user').send_keys(@username)
+    @browser.input(name: 'passwd').send_keys(@password)
+    @browser.button(value: 'Submit').click
+
+    @browser.wait_until { @browser.title != title }
+
+    $logger.debug("Authentication OK")
+  end
+end
+
+
 class StockArray < Array
   def merge(array)
     array.each do |newstock|
@@ -158,45 +193,34 @@ class Portfolio < StockArray
     @username = username
     @password = password
     @pfname = pfname
-
-    @agent = Mechanize.new
-    @agent.verify_mode = OpenSSL::SSL::VERIFY_NONE
-    @agent.user_agent_alias = 'Linux Firefox'
+    @wc = WatirConnect.new(username, password)
+    @browser = @wc.browser
   end
 
   def login
-    loginurl = "https://www.portfolio123.com/login.jsp?url=%2F"
-    page = @agent.get(loginurl)
-    form = page.forms.first
-
-
-    form["LoginUsername"] = @username
-    form["LoginPassword"] = @password
-    form["url"] = "/"
-    @agent.submit(form, form.buttons.first)
-
-    $logger.debug("Authentication OK")
+    @wc.login
   end
 
   def import
     raise "Cannot import because no pfname defined" if @pfname.nil?
 
     pfurl = "https://www.portfolio123.com/app/trade/accounts"
-    page = @agent.get(pfurl)
+    @browser.goto(pfurl)
 
     ### parse Liquidation field ###
-    doc = page.parser
-    pliq = doc.css('div#trade-cont2 tbody tr').select { |x| x.css('td')[0].text == @pfname }.first
-    @liquidation = pliq.css('td')[8].text.gsub(/[^\d^\.]/,'').to_f
-    
+    pliq = @browser.elements(css: 'div#trade-cont2 tbody tr').select { |x| x.elements(css: 'td')[0].text == @pfname }.first
+    @liquidation = pliq.elements(css: 'td')[7].text.gsub(/[^\d^\.]/,'').to_f
     $logger.debug "liquidation = #{@liquidation}"
 
+
     ### parse Current Stock Positions field ###
-    psto = doc.css('div#pos-tbl-cont table')[1].css('tbody tr').select { |x| x.css('td')[0].text == @pfname }
+    psto = @browser.elements(css: 'div#pos-tbl-cont table')[1].elements(css: 'tbody tr').select { |x| x.elements(css: 'td')[0].text == @pfname }
     psto.each do |p|
-      ticker = p.css('td')[1].css('span')[0].text
-      shares = p.css('td')[3].text.to_i
-      avgcost = p.css('td')[7].text.gsub(/[^\d^\.]/,'').to_f
+      ticker = p.elements(css: 'td')[1].elements(css: 'span')[0].text
+      shares = p.elements(css: 'td')[3].text.to_i
+      avgcost = p.elements(css: 'td')[7].text.gsub(/[^\d^\.]/,'').to_f
+
+      #$logger.debug "#{ticker} #{shares} #{avgcost}"
 
       stock = Stock.new(ticker)
       stock.shares = shares
@@ -211,26 +235,26 @@ class Portfolio < StockArray
 
   def runtest
     pfurl = "https://www.portfolio123.com/app/trade/accounts"
-    page = @agent.get(pfurl)
-    doc = page.parser
-    active_account = doc.css('div#trade-cont2 tbody tr').select { |x| x.css('td')[2].text.include? "Active" }.length
+    @browser.goto(pfurl)
+    #active_account = doc.css('div#trade-cont2 tbody tr').select { |x| x.css('td')[2].text.include? "Active" }.length
+    active_account = @browser.elements(css: 'div#trade-cont2 tbody tr').select { |x| x.elements(css: 'td')[1].text.include? "XXXX" }.length
+
     if active_account != 0
       $logger.debug "Found #{active_account} active account"
     else
       raise "No active account found !"
     end
-    
-    acc = doc.css('div#trade-cont2 tbody tr').select { |x| x.css('td')[2].text.include? "Active" }
+   
+    acc = @browser.elements(css: 'div#trade-cont2 tbody tr').select { |x| x.elements(css: 'td')[1].text.include? "XXXX" }
     acc.each do |a|
-      accname = a.css('td')[0].text
-      accbalance = a.css('td')[7].text.gsub(/[^\d^\.]/,'').to_f
+      accname = a.elements(css: 'td')[0].text
+      accbalance = a.elements(css: 'td')[6].text.gsub(/[^\d^\.]/,'').to_f
       if accbalance > 0
         $logger.debug("Balance #{accname} #{accbalance} is positive")
       else
         raise "Balance #{accname} #{accbalance} is negative !"
       end
     end
-
   end
 end
 
@@ -245,23 +269,22 @@ class Simulation < Portfolio
   def import(simid)
     raise "Cannot import because no simid defined" if simid.nil?
 
-    pfurl = "https://www.portfolio123.com/p123/DownloadPortHoldings?portid=#{simid}"
-    page = @agent.get(pfurl)
+    pfurl = "https://www.portfolio123.com/holdings.jsp?portid=#{simid}"
+    @browser.goto(pfurl)
 
-    array = page.content.split("\n").reject { |x| x == "no rows" }.map { |x| x.chomp.split("\t")[1] }.reject { |x| x == "Ticker" }
-
-    array.each do |ticker|
+    @browser.elements(css: 'div.ticker-box').each do |x|
+      ticker = x.element(css: 'span').text
       stock = Stock.new(ticker)
       self.push stock
     end
-
+ 
     $logger.debug "#{self.length} stocks imported"
   end
 
   def runtest(simid)
-    pfurl = "https://www.portfolio123.com/p123/DownloadPortHoldings?portid=#{simid}"
-    page = @agent.get(pfurl)
-    array = page.content.split("\n").reject { |x| x == "no rows" }.map { |x| x.chomp.split("\t")[1] }.reject { |x| x == "Ticker" }
+    pfurl = "https://www.portfolio123.com/holdings.jsp?portid=#{simid}"
+
+    array = @browser.elements(css: 'div.ticker-box')
 
     len = array.length
     if len != 0
@@ -275,23 +298,7 @@ class Simulation < Portfolio
 end
 
 
-class WatirConnect
-  def initialize(username, password)
-    @username = username
-    @password = password
-    @browser = Watir::Browser.new(:chrome, {:chromeOptions => {:args => ['--headless', '--window-size=1200x600']}})
-    #@browser = Watir::Browser.new(:chrome)
-  end
 
-  def login
-    loginurl = "https://www.portfolio123.com/login.jsp?url=%2F"
-    @browser.goto(loginurl)
-    @browser.input(name: 'LoginUsername').send_keys(@username)
-    @browser.input(name: 'LoginPassword').send_keys(@password)
-    @browser.input(name: 'Login').click
-    $logger.debug("Authentication OK")
-  end
-end
 
 class WatirSimulation < WatirConnect
   def initialize(username, password)
@@ -362,10 +369,13 @@ class Trade < WatirConnect
   def submitOrder(pfname, ordertxt)
     tradeurl = "https://www.portfolio123.com/app/trade/orderBatch"
     @browser.goto(tradeurl)
-    @browser.text_field(name: 'batch_source_name').set("ibbot #{Time.now}")
     @browser.select_list(name: "batch_account_uid").options.find do |option|
       option.text.include? pfname
     end.select
+
+    idselected = @browser.select_list(name: "batch_account_uid").selected_options.first.value
+
+    @browser.text_field(name: "batch_source_name#{idselected}").set("ibbot #{Time.now}")
     @browser.select_list(name: "batch_order_type_uid").select("Limit")
     @browser.textarea(name: "batch_txt").set(ordertxt)
     
@@ -385,13 +395,12 @@ class Trade < WatirConnect
     tradeurl = "https://www.portfolio123.com/app/trade/orderBatch"
     @browser.goto(tradeurl)
 
-    source = @browser.text_field(name: 'batch_source_name').exists?
     accounts = @browser.select_list(name: "batch_account_uid").exists?
     ordertype = @browser.select_list(name: "batch_order_type_uid").exists?
     ordertxt = @browser.textarea(name: "batch_txt").exists?
     submit = @browser.link(text: "Add to Order").exists?
 
-    if source and accounts and ordertype and ordertxt and submit
+    if accounts and ordertype and ordertxt and submit
       $logger.debug "Submit form is conform"
     else
       raise "Submit form not conform !"
