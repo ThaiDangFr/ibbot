@@ -109,8 +109,8 @@ class WatirConnect
     #   }
     # }
 
-    #@browser = Watir::Browser.new(:chrome, {:chromeOptions => {:args => ['--headless', '--window-size=1200x600']}})
-    @browser = Watir::Browser.new :chrome
+    @browser = Watir::Browser.new(:chrome, {:chromeOptions => {:args => ['--headless', '--window-size=1200x600']}})
+    #@browser = Watir::Browser.new :chrome
   end
 
   def login
@@ -283,8 +283,13 @@ class Simulation < Portfolio
 
   def runtest(simid)
     pfurl = "https://www.portfolio123.com/holdings.jsp?portid=#{simid}"
+    @browser.goto(pfurl)
 
-    array = @browser.elements(css: 'div.ticker-box')
+    array = Array.new
+    @browser.elements(css: 'div.ticker-box').each do |x|
+      ticker = x.element(css: 'span').text
+      array.push ticker
+    end
 
     len = array.length
     if len != 0
