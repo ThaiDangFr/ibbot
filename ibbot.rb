@@ -98,28 +98,18 @@ end
 class WatirConnect
    attr_accessor :browser
 
-  def initialize(username, password)
-    @username = username
-    @password = password
-
-    # prefs = {
-    #   download: {
-    #     prompt_for_download: false,
-    #     default_directory: '/tmp'
-    #   }
-    # }
-
+  def initialize
     @browser = Watir::Browser.new(:chrome, {:chromeOptions => {:args => ['--headless', '--window-size=1200x600']}})
     #@browser = Watir::Browser.new :chrome
   end
 
-  def login
+  def login(username, password)
     loginurl = "https://www.portfolio123.com/app/auth"
     @browser.goto(loginurl)
     title = @browser.title
 
-    @browser.input(name: 'user').send_keys(@username)
-    @browser.input(name: 'passwd').send_keys(@password)
+    @browser.input(name: 'user').send_keys(username)
+    @browser.input(name: 'passwd').send_keys(password)
     @browser.button(value: 'Submit').click
 
     @browser.wait_until { @browser.title != title }
@@ -187,22 +177,11 @@ end
 
 
 class Portfolio < StockArray
-  attr_accessor :username, :password, :pfname, :liquidation
-
-  def initialize(username, password, pfname=nil)
-    @username = username
-    @password = password
-    @pfname = pfname
-    @wc = WatirConnect.new(username, password)
-    @browser = @wc.browser
-  end
-
-  def login
-    @wc.login
-  end
+  attr_accessor :username, :password, :pfname, :liquidation, :browser
 
   def import
     raise "Cannot import because no pfname defined" if @pfname.nil?
+    raise "Cannot import because no browser defined" if @browser.nil?
 
     pfurl = "https://www.portfolio123.com/app/trade/accounts"
     @browser.goto(pfurl)
@@ -234,9 +213,11 @@ class Portfolio < StockArray
   end
 
   def runtest
+    raise "Cannot runtest because no browser defined" if @browser.nil?
+
     pfurl = "https://www.portfolio123.com/app/trade/accounts"
     @browser.goto(pfurl)
-    #active_account = doc.css('div#trade-cont2 tbody tr').select { |x| x.css('td')[2].text.include? "Active" }.length
+
     active_account = @browser.elements(css: 'div#trade-cont2 tbody tr').select { |x| x.elements(css: 'td')[1].text.include? "XXXX" }.length
 
     if active_account != 0
@@ -260,14 +241,11 @@ end
 
 
 class Simulation < Portfolio
-  attr_accessor :username, :password
-
-  def initialize(username, password)
-    super(username, password)
-  end
+  attr_accessor :browser
 
   def import(simid)
     raise "Cannot import because no simid defined" if simid.nil?
+    raise "Cannot import because no browser defined" if browser.nil?
 
     pfurl = "https://www.portfolio123.com/holdings.jsp?portid=#{simid}"
     @browser.goto(pfurl)
@@ -282,6 +260,8 @@ class Simulation < Portfolio
   end
 
   def runtest(simid)
+    raise "Cannot runtest because no browser defined" if @browser.nil?
+
     pfurl = "https://www.portfolio123.com/holdings.jsp?portid=#{simid}"
     @browser.goto(pfurl)
 
@@ -305,13 +285,12 @@ end
 
 
 
-class WatirSimulation < WatirConnect
-  def initialize(username, password)
-    super(username, password)
-    #@browser = Watir::Browser.new(:chrome)
-  end
+class WatirSimulation
+  attr_accessor :browser
 
   def rebalance(simid)
+    raise "Cannot rebalance because no browser defined" if @browser.nil?
+
     reburl = "https://www.portfolio123.com/portf_rebalance.jsp?portid=#{simid}"
     @browser.goto(reburl)
 
@@ -348,6 +327,8 @@ class WatirSimulation < WatirConnect
   end
 
   def runtest(simid)
+    raise "Cannot runtest because no browser defined" if @browser.nil?
+
     reburl = "https://www.portfolio123.com/portf_rebalance.jsp?portid=#{simid}"
     @browser.goto(reburl)
 
@@ -365,13 +346,13 @@ end
 
 
 
-class Trade < WatirConnect
-  def initialize(username, password, commit=false)
-    super(username, password)
-    @commit = commit
-  end
+class Trade
+  attr_accessor :browser, :commit
+
 
   def submitOrder(pfname, ordertxt)
+    raise "Cannot submitOrder because no browser defined" if @browser.nil?
+
     tradeurl = "https://www.portfolio123.com/app/trade/orderBatch"
     @browser.goto(tradeurl)
     @browser.select_list(name: "batch_account_uid").options.find do |option|
@@ -397,6 +378,8 @@ class Trade < WatirConnect
   end
 
   def runtest
+    raise "Cannot runtest because no browser defined" if @browser.nil?
+
     tradeurl = "https://www.portfolio123.com/app/trade/orderBatch"
     @browser.goto(tradeurl)
 
@@ -504,6 +487,11 @@ begin
 
 
   $logger.debug "--BEGIN--"
+
+  watirconnect = WatirConnect.new
+  watirconnect.login(username, password)
+  browser = watirconnect.browser
+
   totalportfolio = StockArray.new
   liquidation = 0
 
@@ -513,13 +501,13 @@ begin
     stock.runtest
 
     $logger.debug "=> Testing Portfolio"
-    portfolio = Portfolio.new(username,password)
-    portfolio.login
+    portfolio = Portfolio.new
+    portfolio.browser = browser
     portfolio.runtest
     
     $logger.debug "=> Testing Simulation"
-    simulation = Simulation.new(username,password)
-    simulation.login
+    simulation = Simulation.new
+    simulation.browser = browser
     
     totlen = 0
     sim.each do |s|
@@ -530,16 +518,17 @@ begin
     $logger.debug "Total stocks found : #{totlen}"
 
     $logger.debug "=> Testing rebalance"
-    wsim = WatirSimulation.new(username, password)
-    wsim.login
+    wsim = WatirSimulation.new
+    wsim.browser = browser
+
     sim.each do |s|
       simid = s.split(':')[0]
       wsim.runtest simid
     end
 
     $logger.debug "=> Testing Trade"
-    trade = Trade.new(username, password)
-    trade.login
+    trade = Trade.new
+    trade.browser = browser
     trade.runtest
 
     exit 0
@@ -549,8 +538,9 @@ begin
   
   if rebalance
     $logger.debug("Rebalancing sims before importing")
-    wsim = WatirSimulation.new(username,password)
-    wsim.login
+    wsim = WatirSimulation.new
+    wsim.browser = browser
+
     sim.each do |x|
       simid = x.split(':')[0]
       $logger.debug("Rebalancing #{simid}")
@@ -562,8 +552,10 @@ begin
 
   if not pf_name.nil?
     $logger.debug("Importing #{pf_name}")
-    portfolio = Portfolio.new(username,password,pf_name)
-    portfolio.login
+    portfolio = Portfolio.new
+    portfolio.browser = browser
+    portfolio.pfname = pf_name
+
     portfolio.import
     liquidation = portfolio.liquidation
 
@@ -579,8 +571,8 @@ begin
     pct = x.split(':')[1].to_f
 
     $logger.debug "Importing Sim #{simid} for #{pct}%"
-    simulation = Simulation.new(username,password)
-    simulation.login
+    simulation = Simulation.new
+    simulation.browser = browser
     simulation.import simid
     simulation.print_stocklist
 
@@ -630,8 +622,10 @@ begin
   if not pf_name.nil? and not ordertxt.nil?
     $logger.debug "Trading orders"
     $logger.debug "Commit : #{commit}"
-    trade = Trade.new(username, password, commit)
-    trade.login
+    trade = Trade.new
+    trade.browser = browser
+    trade.commit = commit
+
     trade.submitOrder(pf_name, ordertxt)
   end
 
