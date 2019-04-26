@@ -99,8 +99,13 @@ end
 class WatirConnect
    attr_accessor :browser
 
+  # on the VM avoid to have a chrome opened
+  # otherwise you could have :
+  #   Caught exception; exiting
+  #   Net::ReadTimeout
+  # if there is not enough memory 
   def initialize
-    @browser = Watir::Browser.new(:chrome, {:chromeOptions => {:args => ['--headless', '--window-size=1200x600']}})
+    @browser = Watir::Browser.new(:chrome, {:chromeOptions => {:args => ['--headless', '--window-size=1200x600', '--no-sandbox','--disable-gpu', '--disable-infobars']}})
     #@browser = Watir::Browser.new :chrome
   end
 
