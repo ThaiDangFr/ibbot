@@ -194,7 +194,7 @@ class Portfolio < StockArray
 
     ### parse Liquidation field ###
     pliq = @browser.elements(css: 'div#trade-cont2 tbody tr').select { |x| x.elements(css: 'td')[0].text == @pfname }.first
-    @liquidation = pliq.elements(css: 'td')[7].text.gsub(/[^\d^\.]/,'').to_f
+    @liquidation = pliq.elements(css: 'td')[7].text.gsub(/[^\d^\.^\-]/,'').to_f
     $logger.debug "liquidation = #{@liquidation}"
 
 
@@ -203,7 +203,7 @@ class Portfolio < StockArray
     psto.each do |p|
       ticker = p.elements(css: 'td')[1].elements(css: 'span')[0].text
       shares = p.elements(css: 'td')[3].text.to_i
-      avgcost = p.elements(css: 'td')[7].text.gsub(/[^\d^\.]/,'').to_f
+      avgcost = p.elements(css: 'td')[7].text.gsub(/[^\d^\.^\-]/,'').to_f
 
       #$logger.debug "#{ticker} #{shares} #{avgcost}"
 
@@ -235,7 +235,7 @@ class Portfolio < StockArray
     acc = @browser.elements(css: 'div#trade-cont2 tbody tr').select { |x| x.elements(css: 'td')[1].text.include? "XXXX" }
     acc.each do |a|
       accname = a.elements(css: 'td')[0].text
-      accbalance = a.elements(css: 'td')[6].text.gsub(/[^\d^\.]/,'').to_f
+      accbalance = a.elements(css: 'td')[6].text.gsub(/[^\d^\.^\-]/,'').to_f
       if accbalance > 0
         $logger.debug("Balance #{accname} #{accbalance} is positive")
       else
