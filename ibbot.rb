@@ -377,6 +377,12 @@ class Trade
       $logger.debug "Order NOT submitted"
     else
       @browser.link(text: "Add to Order").click
+
+      # 03/06/2019 : click on the dropdown menu to select All
+      @browser.span(class: "caret").click
+      @browser.link(text: "All").click
+      #
+
       @browser.link(text: "Review and Submit").click
       @browser.link(text: "Send Order").click
       $logger.debug "Order submitted"
@@ -399,7 +405,6 @@ class Trade
     else
       raise "Submit form not conform !"
     end
-
   end
 
 end
