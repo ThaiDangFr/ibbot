@@ -13,7 +13,7 @@ require 'byebug'
 require 'webdrivers'
 
 
-
+Webdrivers.cache_time = 86400 # https://github.com/titusfortner/webdrivers#caching-drivers
 SLIPPAGE = 0.0025 # 0.25%
 $logger = Logger.new(STDOUT)
 $logger.level = Logger::ERROR
