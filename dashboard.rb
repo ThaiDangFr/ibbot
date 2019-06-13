@@ -54,59 +54,34 @@ end
 class WatirFund
   attr_accessor :browser
 
-  def rebalance(modelid)
+  def rebalance(modelid, commit=false)
     raise "Cannot rebalance because no browser defined" if @browser.nil?
 
-    reburl = "https://www.portfolio123.com/portf_rebalance.jsp?portid=#{modelid}"
+    reburl = "https://www.portfolio123.com/app/investment/details?id=#{modelid}&t=rebalance"
     @browser.goto(reburl)
 
-    rebalbtn = @browser.button(text: /Reconstitute & Rebalance/)
-    if rebalbtn.exists?
-      $logger.debug "Clicking 'Reconstitute & Rebalance'"
-      rebalbtn.click
-    end
-      
-    recalert = @browser.div(id: "recs-alert")
-    txtbefore = recalert.text
-    $logger.debug "Status : #{txtbefore}"
+    orderlist = @browser.div(text: /Set all to/)
+    if orderlist.exists?
+      $logger.debug "Clicking 'Set all to -> relative 0.01 peg'"
+      orderlist.click
 
-    btngetrec = @browser.button(id: "btn-get-recs")
-    if not btngetrec.disabled? and btngetrec.exists?
-      $logger.debug "Clicking 'Get Recommendations'"
-      btngetrec.click
+      @browser.link(text: /Relative 0.01 peg/).click
     end
 
-    Watir::Wait.until { recalert.text != txtbefore }
-    txtafter = recalert.text
-    $logger.debug "New status : #{txtafter}"
-    
-    btncommit = @browser.button(id: "recs-commit")
-
-    if btncommit.present? and not btncommit.disabled?
-      btncommit.click
-      Watir::Wait.until { recalert.text != txtafter }
-      $logger.debug "Rebalance : committed"
-    else
-      $logger.debug "Rebalance : nothing to commit"
+    reviewbtn = @browser.button(text: /Review and Send/)
+    if reviewbtn.exists?
+      $logger.debug "Clicking Review and Send"
+      reviewbtn.click
     end
-    
-  end
 
-  def runtest(modelid)
-    raise "Cannot runtest because no browser defined" if @browser.nil?
-
-    reburl = "https://www.portfolio123.com/portf_rebalance.jsp?portid=#{modelid}"
-    @browser.goto(reburl)
-
-    recsalert = @browser.div(id: "recs-alert").exists?
-    btngetrecs = @browser.button(id: "btn-get-recs").exists?
-    recscommit = @browser.button(id: "recs-commit").exists?
-    
-    if recsalert and btngetrecs and recscommit
-      $logger.debug "#{modelid} : rebalance page is conform"
-    else
-      raise "#{modelid} : rebalance page is not conform !"
+    if commit
+      confirmbtn = @browser.button(text: "Confirm")
+      if confirmbtn.present? and not confirmbtn.disabled?
+        $logger.debug "Clicking Confirm"
+        confirmbtn.click
+      end    
     end
+
   end
 end
 
@@ -204,8 +179,18 @@ begin
   watirconnect.login(username, password)
   browser = watirconnect.browser
 
+  watirfund = WatirFund.new
+  watirfund.browser = browser
+
+  if rebalance
+    modelids.each do |modelid|
+      $logger.debug "Rebalancing #{modelid}"
+      watirfund.rebalance(modelid, commit)
+    end
+  end
   
-  
+
+
   
 
 
