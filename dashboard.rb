@@ -60,11 +60,10 @@ class WatirFund
     reburl = "https://www.portfolio123.com/app/investment/details?id=#{modelid}&t=rebalance"
     @browser.goto(reburl)
 
-    orderlist = @browser.div(text: /Set all to/)
+    orderlist = @browser.div(text: /Set all to/).span(class: "caret", index: 1)
     if orderlist.exists?
       $logger.debug "Clicking 'Set all to -> relative 0.01 peg'"
       orderlist.click
-
       @browser.link(text: /Relative 0.01 peg/).click
     end
 
