@@ -29,9 +29,12 @@ class WatirConnect
   #   Caught exception; exiting
   #   Net::ReadTimeout
   # if there is not enough memory 
-  def initialize
-    @browser = Watir::Browser.new(:chrome, {:chromeOptions => {:args => ['--headless', '--window-size=1200x600', '--no-sandbox','--disable-gpu', '--disable-infobars']}})
-    #@browser = Watir::Browser.new :chrome
+  def initialize(dev=false)
+    if not dev
+      @browser = Watir::Browser.new(:chrome, {:chromeOptions => {:args => ['--headless', '--window-size=1200x600', '--no-sandbox','--disable-gpu', '--disable-infobars']}})
+    else
+      @browser = Watir::Browser.new :chrome
+    end
   end
 
   def login(username, password)
@@ -51,39 +54,91 @@ end
 
 
 
-class WatirFund
+class WatirAccount
   attr_accessor :browser
+  
+  # retrieve an array of modelIds
+  def rebalanceAll(commit=false)
+    strategies = Array.new
 
-  def rebalance(modelid, commit=false)
-    raise "Cannot rebalance because no browser defined" if @browser.nil?
+    @browser.goto("https://www.portfolio123.com/app/account")
+    Watir::Wait.until { @browser.text.include? "Accounts" }
 
-    reburl = "https://www.portfolio123.com/app/investment/details?id=#{modelid}&t=rebalance"
-    @browser.goto(reburl)
-
-    orderlist = @browser.div(text: /Set all to/).span(class: "caret", index: 1)
-    if orderlist.exists?
-      $logger.debug "Clicking 'Set all to -> relative 0.01 peg'"
-      orderlist.click
-      @browser.link(text: /Relative 0.01 peg/).click
+    porfolios = Array.new
+    @browser.divs(class: "resp-table-row").each do |d|
+      porfolios << d.a.href
     end
 
-    reviewbtn = @browser.button(text: /Review and Send/)
-    if reviewbtn.exists?
-      $logger.debug "Clicking Review and Send"
-      reviewbtn.click
+    porfolios.each do |p|
+      $logger.debug "Go to #{p}"
+      @browser.goto(p)
+
+      Watir::Wait.until { @browser.text.include? "Summary" }
+      title = @browser.title
+      $logger.debug ".. #{title}"
+      
+      @browser.divs(class: "resp-table-row").each do |s|
+        strategies << s.a.href
+      end
+
+      reconciliate = @browser.a(text: "journal")
+      if reconciliate.exists?
+        $logger.debug ".. Reconciling account via journal"
+        reconciliate.click
+        Watir::Wait.until { @browser.text.include? "Journal Entry" }
+
+        recbut = @browser.button(text: "Apply")
+        if recbut.exists?
+          recbut.click
+        end
+
+        submitbut = @browser.button(text: "Submit")
+        if submitbut.exists?
+          submitbut.click
+        end
+      end
     end
 
-    if commit
-      confirmbtn = @browser.button(text: "Confirm")
-      if confirmbtn.present? and not confirmbtn.disabled?
-        $logger.debug "Clicking Confirm"
-        confirmbtn.click
-      end    
+
+    $logger.debug "Rebalancing strategies"
+    strategies.each do |s|
+      $logger.debug ".. Go to #{s}"
+      @browser.goto(s)
+      
+      Watir::Wait.until { @browser.text.include? "Summary" }
+      title = @browser.title
+      $logger.debug ".... #{title}"
+
+      @browser.a(class: "dropdown-toggle").click
+      @browser.a(text: /Rebalance/).click
+      Watir::Wait.until { @browser.text.include? "Rebalance" }
+      
+      orderlist = @browser.div(text: /Set all to/).span(class: "caret", index: 1)
+      if orderlist.exists?
+        $logger.debug "....Clicking 'Set all to -> relative 0.01 peg'"
+        orderlist.click
+        @browser.link(text: /Relative 0.01 peg/).click
+      end
+
+      reviewbtn = @browser.button(text: /Review and Send/)
+      if reviewbtn.exists?
+        $logger.debug "....Clicking Review and Send"
+        reviewbtn.click
+      end
+
+      if commit
+        confirmbtn = @browser.button(text: "Confirm")
+        if confirmbtn.present? and not confirmbtn.disabled?
+          $logger.debug "....Clicking Confirm"
+          confirmbtn.click
+        end    
+      end
+
     end
+
 
   end
 end
-
 
 
 
@@ -115,17 +170,15 @@ begin
       options[:password] = password
     end
 
-
-    options[:modelids] = Array.new
-    opts.on('--modelid MODELID', 'Model ids' ) do |sim|
-      options[:modelids] << sim
-    end
-
     options[:rebalance] = false
     opts.on('--rebalance', 'Rebalance model ids' ) do |t|
       options[:rebalance] = t
     end
     
+    options[:dev] = false
+    opts.on('--dev', 'Running in dev mode' ) do |t|
+      options[:dev] = t
+    end
 
     options[:commit] = false
     opts.on('--commit', 'Send order to trade' ) do |t|
@@ -158,10 +211,10 @@ begin
 
   username=options[:username]
   password=options[:password]
-  modelids=options[:modelids]
   commit=options[:commit]
   testonly=options[:testonly]
   rebalance=options[:rebalance]
+  dev=options[:dev]
 
   mandatory = [:username, :password]                                        
   missing = mandatory.select{ |param| options[param].nil? }            
@@ -174,24 +227,16 @@ begin
 
   $logger.debug "--BEGIN--"
 
-  watirconnect = WatirConnect.new
+  watirconnect = WatirConnect.new(dev)
   watirconnect.login(username, password)
   browser = watirconnect.browser
 
-  watirfund = WatirFund.new
-  watirfund.browser = browser
-
   if rebalance
-    modelids.each do |modelid|
-      $logger.debug "Rebalancing #{modelid}"
-      watirfund.rebalance(modelid, commit)
-    end
+    watiraccount = WatirAccount.new
+    watiraccount.browser = browser
+    watiraccount.rebalanceAll(commit)
   end
   
-
-
-  
-
 
 rescue => err
   $logger.fatal("Caught exception; exiting")

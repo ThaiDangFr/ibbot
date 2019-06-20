@@ -10,7 +10,7 @@ fi
 
 
 LOGFILE=dashboard.log
-./dashboard.rb -v --username $P123USR --password $P123PWD --modelid 1575693 --modelid 1575694 --logfile $LOGFILE --rebalance --commit
+./dashboard.rb -v --username $P123USR --password $P123PWD --logfile $LOGFILE --rebalance --commit
 
 if [ $? -ne 0 ];then
     ./report.rb --email $P123MAIL --subject "IBBOT failed | $LOGFILE" --logfile $LOGFILE
