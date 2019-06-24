@@ -19,6 +19,6 @@ perform a test before running the buy/sell
 perform another test 1h before the market is closed in order to correct things if needed
 
 or if you use dashboard functionality :
-15 12 * * MON /home/ibbot/github/ibbot/run_dashboard.sh
+15 18 * * MON /home/ibbot/github/ibbot/run_dashboard.sh
 
 ```
