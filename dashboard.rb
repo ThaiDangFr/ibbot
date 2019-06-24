@@ -62,7 +62,7 @@ class WatirAccount
     strategies = Array.new
 
     @browser.goto("https://www.portfolio123.com/app/account")
-    Watir::Wait.until { @browser.text.include? "Accounts" }
+    Watir::Wait.until { @browser.text.include? "Pricing" }
 
     porfolios = Array.new
     @browser.divs(class: "resp-table-row").each do |d|
@@ -73,12 +73,12 @@ class WatirAccount
       $logger.debug "Go to #{p}"
       @browser.goto(p)
 
-      Watir::Wait.until { @browser.text.include? "Summary" }
+      Watir::Wait.until { @browser.text.include? "Pricing" }
       title = @browser.title
       $logger.debug ".. #{title}"
       
       @browser.divs(class: "resp-table-row").each do |s|
-        strategies << s.a.href
+        strategies.push(s.a.href)
       end
 
       reconciliate = @browser.a(text: "journal")
@@ -99,19 +99,18 @@ class WatirAccount
       end
     end
 
-
-    $logger.debug "Rebalancing strategies"
+    $logger.debug "Rebalancing #{strategies.length} strategies"
     strategies.each do |s|
       $logger.debug ".. Go to #{s}"
       @browser.goto(s)
       
-      Watir::Wait.until { @browser.text.include? "Summary" }
+      Watir::Wait.until { @browser.text.include? "Pricing" }
       title = @browser.title
       $logger.debug ".... #{title}"
 
       @browser.a(class: "dropdown-toggle").click
       @browser.a(text: /Rebalance/).click
-      Watir::Wait.until { @browser.text.include? "Rebalance" }
+      Watir::Wait.until { @browser.text.include? "Pricing" }
       
       orderlist = @browser.div(text: /Set all to/).span(class: "caret", index: 1)
       if orderlist.exists?
