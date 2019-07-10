@@ -62,7 +62,7 @@ class WatirAccount
     strategies = Array.new
 
     @browser.goto("https://www.portfolio123.com/app/account")
-    Watir::Wait.until { @browser.text.include? "Pricing" }
+    Watir::Wait.until { @browser.text.include? "Accounts" }
 
     porfolios = Array.new
     @browser.divs(class: "resp-table-row").each do |d|
