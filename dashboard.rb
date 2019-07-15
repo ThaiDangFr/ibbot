@@ -73,7 +73,7 @@ class WatirAccount
       $logger.debug "Go to #{p}"
       @browser.goto(p)
 
-      Watir::Wait.until { @browser.text.include? "Pricing" }
+      Watir::Wait.until { @browser.text.include? "Launched on" }
       title = @browser.title
       $logger.debug ".. #{title}"
       
